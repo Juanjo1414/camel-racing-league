@@ -45,3 +45,5 @@ out/
 # Logs
 *.log
 
+# Claude
+CLAUDE.md
