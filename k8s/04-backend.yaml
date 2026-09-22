@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: camelracing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          # Imagen construida localmente con el mismo Dockerfile que usa
+          # compose.yml (docker build -t camelracing-app:latest .).
+          # imagePullPolicy: Never/IfNotPresent evita que Kubernetes intente
+          # descargarla de un registry público -> ver notas de despliegue.
+          image: camelracing-app:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: camelracing-secret
+            - configMapRef:
+                name: camelracing-config
+          readinessProbe:
+            # No usamos httpGet porque casi todos los endpoints exigen JWT
+            # (responderían 401, que un readinessProbe HTTP interpreta como
+            # fallo). Un chequeo de socket TCP alcanza para confirmar que el
+            # proceso de Spring Boot ya está escuchando en el puerto.
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # OJO: este nombre debe ser exactamente "app" -> el nginx.conf ya
+  # compilado dentro de la imagen del frontend tiene escrito
+  # "proxy_pass http://app:8080/api/". Si renombras este Service,
+  # tendrías que reconstruir la imagen del frontend con un nginx.conf
+  # distinto.
+  name: app
+  namespace: camelracing
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080

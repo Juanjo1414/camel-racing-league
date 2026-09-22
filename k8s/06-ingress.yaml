@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: camelracing-ingress
+  namespace: camelracing
+  annotations:
+    # Reescribe /api/xxx -> /api/xxx tal cual hacia el Service "app"
+    # (sin esta anotación, el nginx-ingress a veces recorta el path base
+    # de forma distinta a como espera Spring; la dejamos explícita).
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: camelracing.127.0.0.1.nip.io
+      http:
+        paths:
+          # Más específico primero: todo lo que empiece por /api va al backend.
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: app
+                port:
+                  number: 8080
+          # Cualquier otra ruta (la SPA de React y sus rutas de React Router)
+          # va al frontend.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
